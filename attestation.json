@@ -1,0 +1,9 @@
+{
+  "pluginId": "neodex.sauterelle",
+  "repo": "NDesumeur/neodex-plugin-sauterelle",
+  "version": "1.0.0",
+  "sha256": "e5e49666b4c65f06dd36e39973fb126b73a132a6d93bdbcd2e3993e4f050e6dd",
+  "approvedAt": "2026-11-12T12:24:43.763Z",
+  "neobase": ">=4.0.0",
+  "signature": "vcWwdOG7RJmsemVVU5WUcQxjuYdZkw32wc89+eIp9Vtkr7O1Cj60tCEVUJ2cVfoR4NV5LFAnRkkyJmGWMKzqAQ=="
+}
