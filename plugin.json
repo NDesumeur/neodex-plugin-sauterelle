@@ -1,0 +1,22 @@
+{
+  "id": "neodex.sauterelle",
+  "name": "Sauterelle",
+  "version": "1.0.0",
+  "author": "NDesumeur",
+  "description": "Jeu de saut en pixel art : une sauterelle bondit de feuille en feuille, toujours plus haut, du jardin au ciel, au crépuscule, à la nuit puis aux étoiles. Feuilles qui glissent, feuilles sèches qui cassent, nuages d'un seul saut, champignons ressorts, ailes de libellule et guêpes à écraser. Un record en mètres.",
+  "icon": "icon.png",
+  "entry": "index.js",
+  "view": "sauterelle",
+  "neobase": ">=4.0.0",
+  "type": "app",
+  "category": "Jeux",
+  "syncMode": "progression",
+  "syncInfo": "Record.",
+  "mobile": false,
+  "system": false,
+  "dependencies": {},
+  "sdk": "2.1.0",
+  "permissions": [
+    "storage"
+  ]
+}
