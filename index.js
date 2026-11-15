@@ -5,13 +5,15 @@ const HTML = `<div class="appWrap wide">
   <div class="gMain"><div class="gameBox"><canvas id="saCanvas" width="144" height="200" role="img" aria-label="Sauterelle"></canvas></div>
     <div class="gSide">
       <div class="sysCard"><b>RECORDS</b><div class="gStats" id="saStats"></div></div>
-      <div class="row"><button class="btn main" id="saNew">NOUVELLE PARTIE</button></div>
+      <div class="row"><button class="btn main" id="saNew">NOUVELLE PARTIE</button><button class="btn" id="saFs">PLEIN ÉCRAN</button></div>
       <div class="hint">La sauterelle saute toute seule : dirige-la pour qu'elle retombe sur une feuille. Les feuilles vertes tiennent, les bleues glissent, les sèches cassent sous les pattes et les nuages ne portent qu'une fois. Un champignon rouge l'envoie très haut, des ailes de libellule la font voler un moment. Plus haut, des guêpes : saute-leur dessus, mais ne les touche pas de côté. Si elle tombe en bas de l'écran, c'est fini. Elle passe d'un bord à l'autre de l'écran.</div>
     </div></div>
 </div>`;
 const CSS = `.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
-.gameBox{display:grid;place-items:center;padding:10px;background:#05010b;flex:0 0 auto;position:relative}
-.gameBox canvas{height:min(72vh,640px);width:auto;aspect-ratio:144/200;image-rendering:pixelated;cursor:var(--cp,pointer);touch-action:none}
+.gameBox{display:grid;place-items:center;padding:10px;background:#05010b;flex:0 1 auto;min-width:min(100%,240px);position:relative}
+.gameBox:fullscreen{padding:0}
+.gameBox:fullscreen canvas{height:min(100vh,calc(100vw * 200 / 144));max-width:none;max-height:none}
+.gameBox canvas{height:max(300px,calc(100vh - 190px));max-width:100%;max-height:calc(100vh - 190px);width:auto;aspect-ratio:144/200;image-rendering:pixelated;cursor:var(--cp,pointer);touch-action:none}
 .gSide{display:flex;flex-direction:column;gap:14px;flex:1;min-width:250px;max-width:420px}
 .gSide .sysCard{display:flex;flex-direction:column}
 .gStats{display:grid;grid-template-columns:1fr auto;gap:4px 14px}
@@ -288,7 +290,7 @@ export default async function (ctx) {
   view.innerHTML = HTML;
   pxSkin(view.querySelector('.appWrap'), { title: "SAUTERELLE", T: {"k": "#0c0a12", "k2": "#16121e", "fill": "#221c2c", "fillOn": "#2e263a", "hl": "#3a3046", "line": "#62566e", "acc": "#5aaa2a", "accL": "#c8f0a0", "accS": "#3a7a1a", "accD": "#14280a", "rivet": "#f0f0f8", "btn": "#3a3046", "btnHi": "#62566e", "btnLo": "#16121e", "btnHov": "#443852", "btnHovHi": "#82768e", "text": "#f4f0f8", "muted": "#c0b8cc", "acc2": "#7ee07a", "gold": "#ffd84a", "orange": "#ff8a3a", "red": "#ff4a3a", "green": "#7ee07a", "green2": "#2f8a3a", "bg": "#100c16", "bgDot": "#221c2c", "bgDot2": "#16121e", "spark": "#14280a", "spark2": "#5aaa2a", "tile": ["................", "...:............", "................", "..........+.....", "................", "................", ".....:..........", "................", "................", ".............:..", "................", "..+.............", "................", ".........:......", "................", "................"]},
   emblem: ["..........k.", ".........k..", "......kkkk..", ".....knnnwk.", "..kkkknnnkkk", ".kNNNNNnnnk.", "kNNNNNNNNk..", ".kkkkkkkk...", "..kN.kN.....", ".kN..kN.....", "kN....kN....", "............"],
-  icons: [[/^NOUVELLE/, 'play'], [/^RECORDS/, 'crown']] });
+  icons: [[/^NOUVELLE/, 'play'], [/^RECORDS/, 'crown'], [/^PLEIN/, 'full']] });
   const $ = id => view.querySelector('#' + id) || document.getElementById(id);
   const doc = async n => { try { return await folder.read(n); } catch { return null; } };
   const games = { best: {}, ...(await doc('games')) };
@@ -320,7 +322,7 @@ const pxFont = (g, text, x, y, color, size = 8, align = 'left') => { const s = P
 
 /* ---------- Sauterelle : une sauterelle saute de feuille en feuille, toujours plus haut : jardin, ciel, crépuscule, nuit, étoiles.
    Feuilles fixes, feuilles qui glissent, feuilles sèches qui cassent, nuages qui ne portent qu'une fois, champignons ressorts, ailes de libellule, guêpes ---------- */
-const SA = {W: 144, H: 200, HUD: 12, G: .18, JUMP: -5.2, SPRING: -9, WING: -6.5, PW: 22, ZONE: 2000};
+const SA = {W: 144, H: 200, HUD: 12, G: .18, JUMP: -5.2, SPRING: -9, WING: -6.5, BUG: -2.4, CARRY: 240, PW: 22, ZONE: 2000};
 // une nouvelle partie garde le même objet : la boucle du jeu (gameLoop) continue de tourner dessus
 const renew = (old, o) => { if (!old) return o; for (const k of Object.keys(old)) if (k !== 'raf') delete old[k]; return Object.assign(old, o); };
 const sas = gstore('sauterelle', {games: 0, total: 0, wasps: 0});
@@ -338,6 +340,8 @@ function saGen() {
       const dx = (x + 40 + Math.floor(r() * 60)) % (SA.W - SA.PW); sa.plats.push({x: dx, y: Math.round((y + sa.top) / 2), t: 'dry', vx: 0, used: 0});
     }
     if (h > 600 && r() < .015) sa.items.push({x: (x + 60) % (SA.W - 10), y: y - 30});
+    else if (!saNoWasp && h > 300 && r() < .012) sa.items.push(  // shortcut: le joueur automatique de la vérification ne sait pas viser après une coccinelle, elle y est testée à part
+      {x: (x + 70) % (SA.W - 10), y: y - 30, k: 'bug'});
     if (!saNoWasp && h > 1300 && r() < Math.min(.14, h / 30000)) sa.wasps.push({x: r() * (SA.W - 12), y: Math.round((y + sa.top) / 2) - 6, vx: (r() < .5 ? -1 : 1) * (.5 + r() * .5), dead: 0});
     sa.top = y;
   }
@@ -346,7 +350,7 @@ function saGen() {
 }
 function saNew() {
   const g = sa?.g;
-  sa = renew(sa, {g, mode: 'ready', tick: 0, seen: 0, rnd: seeded(Date.now() % 1e9), keys: new Set(), x: SA.W / 2 - 5, y: 0, vx: 0, vy: 0, face: 1, cam: -SA.H + 24, top: 0, maxH: 0, squash: 0, wing: 0,
+  sa = renew(sa, {g, mode: 'ready', tick: 0, seen: 0, rnd: seeded(Date.now() % 1e9), keys: new Set(), x: SA.W / 2 - 5, y: 0, vx: 0, vy: 0, face: 1, cam: -SA.H + 24, top: 0, maxH: 0, squash: 0, wing: 0, carry: 0,
     plats: [{x: 0, y: 0, t: 'ground', w: SA.W, vx: 0, used: 0}], wasps: [], items: [], bits: [], dead: 0, why: '', record: false, stomps: 0, drag: 0});
   saGen(); saInfo();
 }
@@ -358,7 +362,7 @@ function saUpdate() {
   sa.vx += (dir * 2.3 - sa.vx) * .18;
   sa.x = ((sa.x + sa.vx) % SA.W + SA.W) % SA.W;
   if (sa.squash) sa.squash--;
-  if (sa.wing) { sa.wing--; sa.vy = SA.WING; } else sa.vy = Math.min(7, sa.vy + SA.G);
+  if (sa.wing) { sa.wing--; sa.vy = SA.WING; } else if (sa.carry) { sa.carry--; sa.vy = SA.BUG; } else sa.vy = Math.min(7, sa.vy + SA.G);
   const py = sa.y; sa.y += sa.vy;
   for (const p of sa.plats) {
     if (p.t === 'move') { p.x += p.vx; if (p.x < 0 || p.x > SA.W - SA.PW) { p.vx = -p.vx; p.x = Math.max(0, Math.min(SA.W - SA.PW, p.x)); } }
@@ -375,13 +379,13 @@ function saUpdate() {
     if (p.t === 'cloud') { p.gone = 1; for (let i = 0; i < 8; i++) sa.bits.push({x: p.x + i * 3, y: p.y, vx: (sa.rnd() - .5) * .8, vy: -.3 - sa.rnd() * .5, t: 30, c: '#f0f4ff'}); }
     break;
   }
-  for (const it of sa.items) if (!it.taken && Math.abs(sa.x + 5 - it.x - 5) < 9 && Math.abs(sa.y - 5 - it.y - 4) < 10) { it.taken = 1; sa.wing = 150; [660, 880, 1100].forEach((f, i) => setTimeout(() => saBeep(f, .08), i * 60)); }
+  for (const it of sa.items) if (!it.taken && Math.abs(sa.x + 5 - it.x - 5) < 9 && Math.abs(sa.y - 5 - it.y - 4) < 10) { it.taken = 1; if (it.k === 'bug') { sa.carry = SA.CARRY; [520, 660, 520, 780].forEach((f, i) => setTimeout(() => saBeep(f, .07, 'triangle'), i * 70)); } else { sa.wing = 150; [660, 880, 1100].forEach((f, i) => setTimeout(() => saBeep(f, .08), i * 60)); } }
   for (const w of sa.wasps) {
     if (w.dead) { w.y += w.dead++ * .15; continue; }
     w.x += w.vx; if (w.x < 0 || w.x > SA.W - 12) w.vx = -w.vx;
     const ox = Math.abs(sa.x + 5 - (w.x + 6)) < 9, top = w.y + 1;
     if (!ox || sa.y < w.y - 1 || sa.y - 9 > w.y + 8) continue;
-    if (sa.wing) { w.dead = 1; continue; }
+    if (sa.wing || sa.carry) { w.dead = 1; continue; }
     if (sa.vy > 0 && py <= top + 3) { w.dead = 1; sa.vy = -6; sa.stomps++; sas.wasps++; saBeep(200, .15, 'square', 80, .05); continue; }  // écrasée par en dessus : on rebondit
     return saOver('piquée');
   }
@@ -407,12 +411,36 @@ function saPlat(g, p, sx, sy) {
   if (p.t === 'ground') { px(g, '#3a8a2a', 0, sy, SA.W, 4); px(g, '#2a6a1a', 0, sy + 4, SA.W, 3); px(g, '#6a4a2a', 0, sy + 7, SA.W, 40); for (let x = 0; x < SA.W; x += 3) px(g, '#5ac03a', x + (x % 2), sy - 1 - (x * 7 % 3 === 0 ? 1 : 0), 1, 2); for (let x = 5; x < SA.W; x += 17) px(g, '#5a3a1a', x, sy + 12 + x % 9, 3, 2); return; }
   if (p.t === 'cloud') { const c = '#f0f4ff', s = '#b8c4e0'; px(g, '#6a7aa0', sx + 1, sy - 2, w - 2, 1); px(g, c, sx + 3, sy - 4, 6, 2); px(g, c, sx + 10, sy - 5, 7, 3); px(g, c, sx, sy - 2, w, 3); px(g, s, sx + 1, sy + 1, w - 2, 2); return; }
   const [L, M, D] = p.t === 'dry' ? ['#d8a85a', '#b8843a', '#7a5020'] : p.t === 'move' ? ['#8ae0c8', '#3ab8a0', '#1a7060'] : ['#9ae05a', '#5aaa2a', '#2a6a1a'];
-  px(g, '#14200a', sx + 2, sy - 1, w - 4, 1); px(g, '#14200a', sx, sy, 1, 3); px(g, '#14200a', sx + w - 1, sy, 1, 3); px(g, '#14200a', sx + 2, sy + 4, w - 4, 1);
-  px(g, L, sx + 2, sy, w - 4, 1); px(g, M, sx + 1, sy + 1, w - 2, 2); px(g, D, sx + 1, sy + 3, w - 2, 1); px(g, '#14200a', sx + 1, sy + 3, 1, 1); px(g, '#14200a', sx + w - 2, sy + 3, 1, 1);
-  px(g, D, sx + 3, sy + 1, w - 7, 1); for (let i = 5; i < w - 4; i += 5) px(g, D, sx + i, sy + 2, 1, 1);  // la nervure
-  px(g, D, sx + w - 1, sy + 1, 2, 1);  // la tige
+  const K = '#14200a', rows = [[-1, 6, w - 9, L], [0, 3, w - 5, L], [1, 1, w - 3, M], [2, 2, w - 3, M], [3, 4, w - 6, D]];  // [rangée, début, fin, couleur]
+  px(g, K, sx + 6, sy - 2, w - 14, 1); px(g, K, sx + 4, sy + 4, w - 9, 1); px(g, K, sx, sy + 1, 1, 1);
+  for (const [dy, a, b, c] of rows) { px(g, K, sx + a - 1, sy + dy, 1, 1); px(g, K, sx + b + 1, sy + dy, 1, 1); px(g, c, sx + a, sy + dy, b - a + 1, 1); }
+  px(g, D, sx + 2, sy + 1, w - 5, 1);  // la nervure du milieu
+  for (let i = 6; i < w - 5; i += 4) { px(g, D, sx + i, sy, 1, 1); px(g, D, sx + i + 1, sy - 1 + (i < w - 9 ? 0 : 1), 1, 1); px(g, D, sx + i, sy + 2, 1, 1); }  // les nervures de côté
+  px(g, D, sx + w - 2, sy + 1, 3, 1); px(g, D, sx + w + 1, sy + 2, 1, 1);  // la tige
   if (p.t === 'dry') { px(g, '#7a5020', sx + 7, sy + 1, 1, 2); px(g, '#7a5020', sx + 14, sy + 2, 2, 1); }
   if (p.spring) { const b = p.boing > 6 ? 1 : 0, cx = sx + w / 2 - 4; sprite(g, b ? ['.kkkkkk.', 'krrwrrwk', 'kkkkkkkk'] : ['..kkkk..', '.krwrrk.', 'krrrrwrk', 'kkkkkkkk', '..kwwk..'], cx, sy - (b ? 3 : 5), {k: '#2a0a10', r: '#e83a3a', w: '#ffffff'}); }
+}
+const SA_BUG = ['..kk....', '.kddrr..', 'kddrkrrk', 'krrrrrrk', 'krkrrkrk', '.krrrrk.', '..kkkk..'], SA_BUG_PAL = {k: '#1a0a0a', d: '#2a1a1a', r: '#e83a2a'};
+function saBlob(g, col, cx, cy, r) { for (let yy = -r; yy <= r; yy++) { const hw = Math.round(Math.sqrt(r * r - yy * yy)); px(g, col, cx - hw, cy + yy, hw * 2 + 1, 1); } }
+function saSides(g) {
+  const {W, H, HUD} = SA, P = .75, S = 36;
+  for (let k = Math.floor(sa.cam * P / S) - 1; k < Math.floor((sa.cam * P + H) / S) + 2; k++) {
+    const hh = (k * 2246822519 >>> 0) % 1000, wy = Math.round(k * S - sa.cam * P + HUD), alt = -k * S / P, left = hh % 2 === 0, X = d => left ? d : W - 1 - d;
+    if (alt < 1900) {  // les herbes hautes, qui ondulent
+      for (let b = 0; b < 3; b++) { const h = 24 + (hh >> b) % 14, x = 2 + b * 4 + hh % 3; for (let j = 0; j < h; j++) px(g, j > h - 3 ? '#c8f080' : b === 1 ? '#3a8a2a' : '#4a9a3a', X(x + Math.round(Math.sin(j / 8 + sa.tick / 45 + b) * 1.5)), wy + S - j, 1, 1);
+        if (b === 1 && hh % 3 === 0) { px(g, '#e8d070', X(x) - 1, wy + S - h - 3, 3, 3); px(g, '#c8a040', X(x), wy + S - h - 2, 1, 1); } }  // un épi
+    } else if (alt < 4300) {  // les arbres : un tronc, des branches et le feuillage
+      const r = 11 + hh % 6, cx = X(r - 4), cy = wy + S / 2;
+      px(g, '#4a3020', X(left ? 0 : 3), wy, 4, S); px(g, '#5a3a24', X(left ? 4 : 4), cy + 6, 1, 1);
+      saBlob(g, '#1e5028', cx, cy, r); saBlob(g, '#2e6a32', cx + (left ? -1 : 1), cy - 1, r - 2); saBlob(g, '#4a9a4a', cx + (left ? 2 : -2), cy - r / 2, Math.round(r / 3));
+      for (let i = 0; i < 5; i++) px(g, '#6aba5a', cx + ((hh * (i + 3)) % (r * 2)) - r + 2, cy + ((hh * (i + 7)) % r) - r / 2, 2, 1);
+    } else if (alt < 6600) {  // les gros nuages
+      const c = alt < 5400 ? '#e8f0ff' : '#c8b8e0', sh = alt < 5400 ? '#b8c8e8' : '#9a88c0', cx = X(6 + hh % 10);
+      saBlob(g, sh, cx, wy + 22, 12); saBlob(g, c, cx, wy + 19, 12); saBlob(g, c, cx + (left ? 12 : -12), wy + 23, 8); saBlob(g, c, cx + (left ? -6 : 6), wy + 13, 9);
+    }
+  }
+  const my = Math.round(-7600 * P - sa.cam * P + HUD);  // la lune, tout là-haut
+  if (my > -30 && my < H + 30) { saBlob(g, '#f4ecc8', W - 30, my, 15); saBlob(g, '#d8cca0', W - 26, my + 4, 4); saBlob(g, '#d8cca0', W - 36, my - 5, 3); px(g, '#d8cca0', W - 33, my + 7, 2, 2); }
 }
 function saDraw() {
   const g = sa.g, {W, H, HUD} = SA;
@@ -430,12 +458,14 @@ function saDraw() {
     else if (alt > 200 && alt < SA.ZONE * 2 && hh % 3 === 0) { const cx = (hh * 3 + sa.tick * .05) % (W + 40) - 30; px(g, '#a8d4f0', cx, wy, 26, 3); px(g, '#a8d4f0', cx + 5, wy - 3, 12, 3); px(g, '#94c4e8', cx + 2, wy + 3, 22, 1); }
   }
   { const hy = Math.round(-sa.cam * .5 + 62); if (hy - 20 < H) for (let x = 0; x < W; x++) { const t = Math.round(10 + 6 * Math.sin(x / 13) + 4 * Math.sin(x / 5.3)); px(g, '#4a9a5a', x, hy - t, 1, H); px(g, '#6aba6a', x, hy - t, 1, 1); } }
+  saSides(g);
   for (const p of sa.plats) if (!p.gone) saPlat(g, p, Math.round(p.x), Math.round(p.y - sa.cam));
-  for (const it of sa.items) { const ix = it.x, iy = it.y - sa.cam + Math.round(Math.sin(sa.tick / 12) * 2); sprite(g, ['kkk..kkk', 'kwwkkwwk', 'kwwkkwwk', '.kkbbkk.', '...kbk..', '...kbk..', '....k...'], ix, iy, {k: '#1a2a3a', w: '#d8f4ff', b: '#3ab8e8'}); }
+  for (const it of sa.items) { const ix = it.x, iy = it.y - sa.cam + Math.round(Math.sin(sa.tick / 12) * 2); if (it.k === 'bug') { const f = (sa.tick >> 2) % 2; px(g, '#e8f4ff', ix + 1, iy - 2 + f, 3, 2); px(g, '#e8f4ff', ix + 5, iy - 2 + f, 3, 2); sprite(g, SA_BUG, ix, iy, SA_BUG_PAL); continue; } sprite(g, ['kkk..kkk', 'kwwkkwwk', 'kwwkkwwk', '.kkbbkk.', '...kbk..', '...kbk..', '....k...'], ix, iy, {k: '#1a2a3a', w: '#d8f4ff', b: '#3ab8e8'}); }
   for (const w of sa.wasps) { const f = (sa.tick >> 2) % 2; sprite(g, w.vx > 0 ? saMirror(SA_WASP[f]) : SA_WASP[f], Math.round(w.x), Math.round(w.y - sa.cam), w.dead ? {...SA_WASP_PAL, y: '#a89a6a'} : SA_WASP_PAL); }
   for (const b of sa.bits) px(g, b.c, b.x, b.y - sa.cam, 2, 2);
   // la sauterelle : pattes tendues en montée, repliées en descente ; ailes de libellule qui battent quand elle vole
   const fall = sa.mode === 'over' ? sa.dead * sa.dead * .04 : 0, rows = sa.vy < -1.5 || sa.wing ? SA_HOP.up : SA_HOP.down, hx = Math.round(sa.x) - 3, hy = Math.round(sa.y - sa.cam - rows.length + fall + (sa.squash > 3 ? 1 : 0));
+  if (sa.carry) { const f = (sa.tick >> 1) % 2; px(g, '#e8f4ff', hx + 3, hy - 9 + f, 4, 2); px(g, '#e8f4ff', hx + 9, hy - 9 + f, 4, 2); sprite(g, SA_BUG, hx + 4, hy - 8, SA_BUG_PAL); for (const d of [6, 9]) px(g, '#1a0a0a', hx + d, hy - 1, 1, 2); }  // la coccinelle tient la sauterelle
   const pal = sa.mode === 'over' ? {...SA_HOP_PAL, g: '#a8b88a', G: '#788a5a', D: '#58684a'} : SA_HOP_PAL;
   for (const ox of [0, hx > W - 16 ? -W : hx < 0 ? W : null].filter(v => v !== null)) {
     if (sa.wing) { const up = (sa.tick >> 1) % 2; px(g, '#d8f4ff', hx + ox + 3, hy + (up ? 0 : 4), 9, 2); px(g, '#3ab8e8', hx + ox + 4, hy + (up ? 1 : 5), 7, 1); }
@@ -444,6 +474,7 @@ function saDraw() {
   px(g, '#0e0a14', 0, 0, W, HUD);
   const m = Math.floor(sa.maxH / 10); pxFont(g, m + ' m', 4, 9, '#ffffff', 8); pxFont(g, 'record ' + (games.best.sauterelle || 0), W - 4, 9, '#ffd84a', 8, 'right');
   if (sa.wing) { px(g, '#2a2236', 4, HUD + 2, 40, 3); px(g, '#3ab8e8', 4, HUD + 2, Math.round(40 * sa.wing / 150), 3); }
+  if (sa.carry) { px(g, '#2a2236', 4, HUD + 2, 40, 3); px(g, '#e83a2a', 4, HUD + 2, Math.round(40 * sa.carry / SA.CARRY), 3); }
   if (sa.mode === 'ready') gameText(g, W, [['SAUTERELLE', '#ffd84a', 12], ['← → : se diriger', '#ffffff'], ['Elle saute toute seule !', '#b0f0a0']], 70);
   if (sa.mode === 'pause') gameText(g, W, [['PAUSE', '#ffd84a', 12], ['Entrée : reprendre', '#b8b0c8']], 80);
   if (sa.mode === 'over' && sa.dead > 30) gameText(g, W, [[sa.why === 'piquée' ? 'PIQUÉE !' : 'TOMBÉE !', '#ff4a3a', 12], [m + ' mètres', '#ffffff'], [sa.record ? 'NOUVEAU RECORD !' : 'Record ' + (games.best.sauterelle || 0) + ' m', '#ffd84a'], [sa.dead > 60 ? 'Espace : rejouer' : '', '#b8b0c8']], 70);
@@ -507,11 +538,14 @@ $('saNew').onclick = () => { saNew(); $('saNew').blur(); };
   one(() => { sa.x = 60; sa.y = -30; sa.vy = 3; sa.wasps.push({x: 59, y: -28, vx: 0, dead: 0}); }); saUpdate(); if (sa.mode !== 'play' || !sa.wasps[0].dead || sa.vy >= 0) bad.push('guêpe pas écrasée');
   one(() => { sa.plats.push({x: 50, y: -40, t: 'dry', vx: 0, used: 0}); sa.x = 55; sa.y = -42; sa.vy = 3; }); saUpdate(); if (!sa.plats[1].gone || sa.vy < 0) bad.push('feuille sèche solide');
   one(() => { sa.plats.push({x: 50, y: -40, t: 'leaf', vx: 0, used: 0, spring: true}); sa.x = 56; sa.y = -42; sa.vy = 3; }); saUpdate(); if (sa.vy !== SA.SPRING) bad.push('champignon sans ressort');
+  one(() => { sa.x = 60; sa.y = -20; sa.vy = 0; sa.items.push({x: 60, y: -26, k: 'bug'}); }); saUpdate(); { const y0 = sa.y; for (let t = 0; t < 100; t++) saUpdate(); if (!(sa.carry > 0 && y0 - sa.y > 200)) bad.push('coccinelle ' + sa.carry + ' ' + (y0 - sa.y)); for (let t = 0; t < SA.CARRY; t++) saUpdate(); if (sa.carry) bad.push('coccinelle sans fin'); }
   one(() => { sa.y = 50; sa.vy = 5; sa.cam = -SA.H + 24; }); for (let t = 0; t < 60 && sa.mode === 'play'; t++) saUpdate(); if (sa.why !== 'tombée') bad.push('chute pas vue');
   console.assert(!bad.length, 'sauterelle', bad);
   Object.assign(sas, JSON.parse(keepS)); if (keepB === undefined) delete games.best.sauterelle; else games.best.sauterelle = keepB;
   sa = keep; saMute = false;
 }
+$('saFs').onclick = () => { $('saFs').blur(); try { document.fullscreenElement ? document.exitFullscreen() : $('saCanvas').parentElement.requestFullscreen?.().catch(() => {}); } catch {} };
+$('saCanvas').__sa = {st: () => sa};
 ctx.onOpen(() => {
   if (!sa || !sa.g) { saNew(); sa.g = $('saCanvas').getContext('2d'); }
   gameLoop(sa, 'sauterelle', saUpdate, saDraw); saInfo();
