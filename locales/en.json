@@ -57,7 +57,6 @@
  "Prochaine feuille": "Next leaf",
  "RECORDS": "BESTS",
  "Record": "Best",
- "Record.": "Best.",
  "SAUTERELLE": "HOPPER",
  "Sauterelle": "Hopper",
  "Sauterelle :": "Hopper:",
@@ -84,5 +83,6 @@
  "écart": "gap",
  "← → : se diriger": "← →: steer",
  "← → ou appuyer à côté de la sauterelle : se diriger · P : pause": "← → or press beside the grasshopper: steer · P: pause",
- "coccinelle sans fin": "endless ladybird"
+ "coccinelle sans fin": "endless ladybird",
+ "Rien n'est synchronisé : tes records restent sur cet appareil.": "Nothing is synced: your records stay on this device."
 }
