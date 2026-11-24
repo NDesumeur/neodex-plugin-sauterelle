@@ -27,6 +27,17 @@ module.exports = async ({ pj, sleep }) => {
   const carry = await S(`return sa.carry;`); if (!(carry > 0)) throw new Error('la coccinelle ne porte pas');
   await shot('4-coccinelle');
   for (const alt of [1000, 3000, 5200, 7600]) { await S(`sa.y = -${alt} + 60; sa.cam = sa.y - 96; sa.top = sa.y; sa.maxH = -sa.y; sa.carry = 999; sa.wasps = []; return 0;`); await sleep(500); await shot('5-' + alt); }
+  // les costumes : fermés au départ, un record de 1500 m ouvre l'arc-en-ciel et un clic le fait porter ; la fusée et l'araignée en jeu
+  const T = code => pj(`(() => { const X = document.getElementById('saCanvas').__sa, sa = X.st(); ${code} })()`);
+  const keepRec = await T(`return X.sas.costume;`);
+  await T(`X.sas.costume = 'verte'; X.info(); return 0;`);
+  const shut = await pj(`[...document.querySelectorAll('#saCos button')].filter(b => b.disabled).length`);
+  await T(`X.sas.games = 99; X.sas.wasps = 99; X.sas.total = 9999; X.info(); return 0;`);
+  await pj(`document.querySelectorAll('#saCos button')[5].click(), 0`); await sleep(100);
+  if (await T('return X.sas.costume;') !== 'robot' || shut < 5) throw new Error('costumes : ' + shut + ' fermés, porté ' + await T('return X.sas.costume;'));
+  await S(`sa.mode = 'play'; sa.carry = 0; sa.y = -3000; sa.cam = sa.y - 96; sa.top = sa.y; sa.items.push({x: sa.x, y: sa.y - 8, k: 'jet'}); sa.wasps.push({k: 'spider', x: 20, y: sa.y - 60, y0: sa.y - 60, ph: 0, vx: 0, dead: 0}); return 0;`); await sleep(350);
+  if (!(await S('return sa.jet;') > 0)) throw new Error('la fusée ne part pas'); await shot('6-fusee-robot');
+  await T(`X.sas.games = X.sas.wasps = X.sas.total = 0; X.sas.costume = 'verte'; X.info(); return 0;`);
   await pj(`document.getElementById('saFs').click(), 0`); await sleep(700);
   const fs = await pj(`(() => { const c = document.getElementById('saCanvas'), r = c.getBoundingClientRect(); return document.fullscreenElement === c.parentElement && (Math.abs(r.height - innerHeight) < 3 || Math.abs(r.width - innerWidth) < 3); })()`);
   await pj(`document.fullscreenElement && document.exitFullscreen(), 0`); await sleep(300);
@@ -34,5 +45,5 @@ module.exports = async ({ pj, sleep }) => {
   const L = await pj(`(() => { const r = document.getElementById('saCanvas').getBoundingClientRect(); let s = 0; for (let e = document.getElementById('saCanvas').parentElement; e; e = e.parentElement) s += e.scrollTop; return { bottom: Math.round(r.bottom + s), h: Math.round(r.height), wh: innerHeight, ww: innerWidth, sw: document.documentElement.scrollWidth }; })()`);
   if (L.bottom > L.wh + 1 || L.sw > L.ww + 1 || L.h < 300) throw new Error('le jeu dépasse la fenêtre ou reste petit : ' + JSON.stringify(L));
   const errs = await pj(`window.__e.join(' | ')`); if (errs) throw new Error('erreur : ' + errs);
-  return l + ' · coccinelle · décors · plein écran · ' + L.h + ' px dans ' + L.ww + '×' + L.wh;
+  return l + ' · coccinelle · décors · costumes · fusée · plein écran · ' + L.h + ' px dans ' + L.ww + '×' + L.wh;
 };

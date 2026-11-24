@@ -1,16 +1,19 @@
 {
   "id": "neodex.sauterelle",
   "name": "Sauterelle",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "author": "NDesumeur",
-  "description": "Jeu de saut en pixel art : une sauterelle bondit de feuille en feuille, toujours plus haut, du jardin au ciel, au crépuscule, à la nuit puis aux étoiles. Feuilles qui glissent, feuilles sèches qui cassent, nuages d'un seul saut, champignons ressorts, ailes de libellule et guêpes à écraser. Un record en mètres. Le décor change en montant (herbes hautes, arbres, gros nuages, puis la lune), les feuilles sont dessinées une à une, une coccinelle amie te porte un moment, et un bouton met le jeu en plein écran.",
+  "description": "Jeu de saut en pixel art : une sauterelle bondit de feuille en feuille, toujours plus haut, du jardin au ciel, au crépuscule, à la nuit puis aux étoiles. Feuilles qui glissent, feuilles sèches qui cassent, nuages d'un seul saut, champignons ressorts, ailes de libellule et guêpes à écraser. Un record en mètres. Le décor change en montant (herbes hautes, arbres, gros nuages, puis la lune), les feuilles sont dessinées une à une, une coccinelle amie te porte un moment, et un bouton met le jeu en plein écran. Sept costumes à gagner, une fusée, une bulle protectrice et des araignées.",
   "icon": "icon.png",
   "entry": "index.js",
   "view": "sauterelle",
   "neobase": ">=4.0.0",
   "type": "app",
   "category": "Jeux",
-  "compatibility": ["windows", "linux"],
+  "compatibility": [
+    "windows",
+    "linux"
+  ],
   "syncMode": "aucune",
   "syncInfo": "Rien n'est synchronisé : tes records restent sur cet appareil.",
   "mobile": false,

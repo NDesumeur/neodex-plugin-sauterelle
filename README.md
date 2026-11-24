@@ -4,6 +4,13 @@ Un jeu de saut en pixel art : une sauterelle bondit de feuille en feuille, toujo
 
 *English version: [README.en.md](README.en.md)*
 
+## Costumes, fusée, bulle et araignées (nouveau en 1.2.0)
+
+- **Sept costumes** gagnés en jouant, à choisir dans le panneau : Verte, **Dorée** (couronne), **Mante rose** (fleur), **Nuit** (chapeau de magicien), **Coccinelle**, **Robot** (antenne) et **Arc-en-ciel**, qui change de couleur en continu. Chacun dit ce qu'il reste à faire pour l'ouvrir.
+- La **fusée** (au-dessus de 250 m) propulse la sauterelle très haut et écrase tout sur son passage.
+- La **bulle** la protège d'une piqûre.
+- Les **araignées** (au-dessus de 260 m) montent et descendent au bout de leur fil : saute-leur dessus, ne les touche pas de côté.
+
 ## Commandes
 
 - **← →** (ou **Q D**) : diriger la sauterelle. Elle saute toute seule.

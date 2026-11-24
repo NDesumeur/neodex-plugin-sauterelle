@@ -5,11 +5,16 @@ const HTML = `<div class="appWrap wide">
   <div class="gMain"><div class="gameBox"><canvas id="saCanvas" width="144" height="200" role="img" aria-label="Sauterelle"></canvas></div>
     <div class="gSide">
       <div class="sysCard"><b>RECORDS</b><div class="gStats" id="saStats"></div></div>
+      <div class="sysCard"><b>COSTUMES</b><div class="saCos" id="saCos"></div></div>
       <div class="row"><button class="btn main" id="saNew">NOUVELLE PARTIE</button><button class="btn" id="saFs">PLEIN ÉCRAN</button></div>
-      <div class="hint">La sauterelle saute toute seule : dirige-la pour qu'elle retombe sur une feuille. Les feuilles vertes tiennent, les bleues glissent, les sèches cassent sous les pattes et les nuages ne portent qu'une fois. Un champignon rouge l'envoie très haut, des ailes de libellule la font voler un moment. Plus haut, des guêpes : saute-leur dessus, mais ne les touche pas de côté. Si elle tombe en bas de l'écran, c'est fini. Elle passe d'un bord à l'autre de l'écran.</div>
+      <div class="hint">La sauterelle saute toute seule : dirige-la pour qu'elle retombe sur une feuille. Les feuilles vertes tiennent, les bleues glissent, les sèches cassent sous les pattes et les nuages ne portent qu'une fois. Un champignon rouge l'envoie très haut, des ailes de libellule la font voler un moment. Plus haut, des guêpes : saute-leur dessus, mais ne les touche pas de côté. Si elle tombe en bas de l'écran, c'est fini. Elle passe d'un bord à l'autre de l'écran. Encore plus haut : une fusée qui la propulse et écrase tout, une bulle qui la protège d'une piqûre, et des araignées au bout de leur fil. En jouant, tu gagnes des costumes.</div>
     </div></div>
 </div>`;
-const CSS = `.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+const CSS = `.saCos{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.saCos button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px;font-size:12px;line-height:1.2}
+.saCos canvas{width:48px;height:48px;image-rendering:pixelated}
+.pxk.pxk .saCos .btn .pxV{white-space:normal;text-align:center}.saCos .btn{min-width:0}.saCos em{font-style:normal;font-size:11px;opacity:.8}
+.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
 .gameBox{display:grid;place-items:center;padding:10px;background:#05010b;flex:0 1 auto;min-width:min(100%,240px);position:relative}
 .gameBox:fullscreen{padding:0}
 .gameBox:fullscreen canvas{height:min(100vh,calc(100vw * 200 / 144));max-width:none;max-height:none}
@@ -325,7 +330,24 @@ const pxFont = (g, text, x, y, color, size = 8, align = 'left') => { const s = P
 const SA = {W: 144, H: 200, HUD: 12, G: .18, JUMP: -5.2, SPRING: -9, WING: -6.5, BUG: -2.4, CARRY: 240, PW: 22, ZONE: 2000};
 // une nouvelle partie garde le même objet : la boucle du jeu (gameLoop) continue de tourner dessus
 const renew = (old, o) => { if (!old) return o; for (const k of Object.keys(old)) if (k !== 'raf') delete old[k]; return Object.assign(old, o); };
-const sas = gstore('sauterelle', {games: 0, total: 0, wasps: 0});
+const sas = gstore('sauterelle', {games: 0, total: 0, wasps: 0}); sas.costume ??= 'verte';
+// les costumes : des couleurs (et parfois un chapeau posé sur la tête), gagnés en jouant
+const SA_COS = [
+  {id: 'verte', name: 'Verte', pal: {}},
+  {id: 'doree', name: 'Dorée', need: ['record', 300], pal: {g: '#ffe27a', G: '#e0a830', D: '#a8701a', y: '#fff4c0', l: '#7a5010'}, hat: ['y.y.y.', 'yyyyy.', 'yryyy.'], hp: {y: '#ffd84a', r: '#e83a3a'}},
+  {id: 'mante', name: 'Mante rose', need: ['total', 1500], pal: {g: '#ffa8d8', G: '#e070b0', D: '#a04080', y: '#ffe0f0', l: '#702050'}, hat: ['.p.', 'pwp', '.p.'], hp: {p: '#ff6ab0', w: '#fff4a0'}},
+  {id: 'nuit', name: 'Nuit', need: ['record', 800], pal: {g: '#8a9aff', G: '#4a5ac8', D: '#2a3480', y: '#d8e0ff', l: '#1a1a50'}, hat: ['..b...', '.bbb..', 'bbsbb.'], hp: {b: '#3a2a8a', s: '#ffd84a'}},
+  {id: 'cocci', name: 'Coccinelle', need: ['wasps', 15], pal: {g: '#ff6a5a', G: '#d02a2a', D: '#801010', y: '#1a0a0a', l: '#300808'}},
+  {id: 'robot', name: 'Robot', need: ['games', 30], pal: {g: '#d8e0e8', G: '#8a96a4', D: '#5a6470', y: '#ffd84a', l: '#3a4048', e: '#ff3a3a'}, hat: ['..r..', '..k..', '..k..'], hp: {r: '#ff3a3a', k: '#3a4048'}},
+  {id: 'arc', name: 'Arc-en-ciel', need: ['record', 1500], pal: {}, rainbow: true}];
+const SA_NEED_TXT = {record: 'm en une partie', total: 'm en tout', wasps: 'guêpes écrasées', games: 'parties'};
+const saNeedVal = c => ({record: games.best.sauterelle || 0, total: sas.total, wasps: sas.wasps, games: sas.games})[c.need[0]];
+const saCosOk = c => !c.need || saNeedVal(c) >= c.need[1];
+const saCos = () => { const c = SA_COS.find(c => c.id === sas.costume) || SA_COS[0]; return saCosOk(c) ? c : SA_COS[0]; };
+function saCosPal(c, t) {  // l'arc-en-ciel change de teinte en continu
+  if (!c.rainbow) return {...SA_HOP_PAL, ...c.pal};
+  const h = t * 4 % 360, hsl = (dh, l) => `hsl(${(h + dh) % 360},85%,${l}%)`; return {...SA_HOP_PAL, g: hsl(0, 70), G: hsl(30, 52), D: hsl(60, 36), y: hsl(180, 85), l: hsl(90, 24)};
+}
 let sa = null, saac = null, saMute = false, saNoWasp = false;
 function saBeep(f, d, type = 'square', slide = 0, vol = .04) { if (saMute) return; try { saac ??= new AudioContext(); const o = saac.createOscillator(), g = saac.createGain(), t = saac.currentTime; o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(saac.destination); o.start(t); o.stop(t + d); } catch {} }
 // le saut normal monte de 75 pixels : l'écart entre deux feuilles « sûres » ne dépasse jamais 58
@@ -339,10 +361,13 @@ function saGen() {
     if (r() < Math.min(.4, .1 + h / 6000)) {  // une feuille sèche en plus, entre deux : elle casse sous les pattes
       const dx = (x + 40 + Math.floor(r() * 60)) % (SA.W - SA.PW); sa.plats.push({x: dx, y: Math.round((y + sa.top) / 2), t: 'dry', vx: 0, used: 0});
     }
-    if (h > 600 && r() < .015) sa.items.push({x: (x + 60) % (SA.W - 10), y: y - 30});
+    if (!saNoWasp && h > 2500 && r() < .008) sa.items.push({x: (x + 50) % (SA.W - 10), y: y - 30, k: 'jet'});  // shortcut: comme la coccinelle, la fusée perd le joueur automatique ; elle est testée à part
+    else if (h > 800 && r() < .01) sa.items.push({x: (x + 80) % (SA.W - 10), y: y - 30, k: 'bulle'});
+    else if (h > 600 && r() < .015) sa.items.push({x: (x + 60) % (SA.W - 10), y: y - 30});
     else if (!saNoWasp && h > 300 && r() < .012) sa.items.push(  // shortcut: le joueur automatique de la vérification ne sait pas viser après une coccinelle, elle y est testée à part
       {x: (x + 70) % (SA.W - 10), y: y - 30, k: 'bug'});
-    if (!saNoWasp && h > 1300 && r() < Math.min(.14, h / 30000)) sa.wasps.push({x: r() * (SA.W - 12), y: Math.round((y + sa.top) / 2) - 6, vx: (r() < .5 ? -1 : 1) * (.5 + r() * .5), dead: 0});
+    if (!saNoWasp && h > 2600 && r() < Math.min(.06, h / 60000)) { const sy = Math.round((y + sa.top) / 2) - 6; sa.wasps.push({k: 'spider', x: r() * (SA.W - 12), y: sy, y0: sy, ph: r() * 6, vx: 0, dead: 0}); }
+    else if (!saNoWasp && h > 1300 && r() < Math.min(.14, h / 30000)) sa.wasps.push({x: r() * (SA.W - 12), y: Math.round((y + sa.top) / 2) - 6, vx: (r() < .5 ? -1 : 1) * (.5 + r() * .5), dead: 0});
     sa.top = y;
   }
   const low = sa.cam + SA.H + 40;  // ce qui est passé sous l'écran ne sert plus
@@ -351,18 +376,21 @@ function saGen() {
 function saNew() {
   const g = sa?.g;
   sa = renew(sa, {g, mode: 'ready', tick: 0, seen: 0, rnd: seeded(Date.now() % 1e9), keys: new Set(), x: SA.W / 2 - 5, y: 0, vx: 0, vy: 0, face: 1, cam: -SA.H + 24, top: 0, maxH: 0, squash: 0, wing: 0, carry: 0,
-    plats: [{x: 0, y: 0, t: 'ground', w: SA.W, vx: 0, used: 0}], wasps: [], items: [], bits: [], dead: 0, why: '', record: false, stomps: 0, drag: 0});
+    plats: [{x: 0, y: 0, t: 'ground', w: SA.W, vx: 0, used: 0}], wasps: [], items: [], bits: [], dead: 0, why: '', record: false, stomps: 0, drag: 0, jet: 0, shield: false, inv: 0, unlock: ''});
   saGen(); saInfo();
 }
 const saWrapDx = (from, to) => ((to - from) % SA.W + SA.W * 1.5) % SA.W - SA.W / 2;
-function saOver(why) { sa.mode = 'over'; sa.why = why; sa.dead = 0; const m = Math.floor(sa.maxH / 10); sas.games++; sas.total += m; sa.record = best('sauterelle', m); saveGames(); saInfo(); saBeep(300, .6, 'sawtooth', 50, .06); }
+function saOver(why) { const before = SA_COS.filter(saCosOk).length; sa.mode = 'over'; sa.why = why; sa.dead = 0; const m = Math.floor(sa.maxH / 10); sas.games++; sas.total += m; sa.record = best('sauterelle', m); saveGames(); saInfo();
+  const now = SA_COS.filter(saCosOk); if (now.length > before) { sa.unlock = now.at(-1).name; toast('Nouveau costume : ' + sa.unlock); } saBeep(300, .6, 'sawtooth', 50, .06); }
 function saUpdate() {
   const dir = (sa.keys.has('R') ? 1 : 0) - (sa.keys.has('L') ? 1 : 0);
   if (dir) sa.face = dir;
   sa.vx += (dir * 2.3 - sa.vx) * .18;
   sa.x = ((sa.x + sa.vx) % SA.W + SA.W) % SA.W;
   if (sa.squash) sa.squash--;
-  if (sa.wing) { sa.wing--; sa.vy = SA.WING; } else if (sa.carry) { sa.carry--; sa.vy = SA.BUG; } else sa.vy = Math.min(7, sa.vy + SA.G);
+  if (sa.inv) sa.inv--;
+  if (sa.jet) { sa.jet--; sa.vy = -9; if (sa.tick % 2 === 0) sa.bits.push({x: sa.x + 4 + sa.rnd() * 3, y: sa.y + 2, vx: (sa.rnd() - .5) * .6, vy: 1.5, t: 14, c: sa.rnd() < .5 ? '#ffd84a' : '#ff6a1a'}); }
+  else if (sa.wing) { sa.wing--; sa.vy = SA.WING; } else if (sa.carry) { sa.carry--; sa.vy = SA.BUG; } else sa.vy = Math.min(7, sa.vy + SA.G);
   const py = sa.y; sa.y += sa.vy;
   for (const p of sa.plats) {
     if (p.t === 'move') { p.x += p.vx; if (p.x < 0 || p.x > SA.W - SA.PW) { p.vx = -p.vx; p.x = Math.max(0, Math.min(SA.W - SA.PW, p.x)); } }
@@ -379,14 +407,16 @@ function saUpdate() {
     if (p.t === 'cloud') { p.gone = 1; for (let i = 0; i < 8; i++) sa.bits.push({x: p.x + i * 3, y: p.y, vx: (sa.rnd() - .5) * .8, vy: -.3 - sa.rnd() * .5, t: 30, c: '#f0f4ff'}); }
     break;
   }
-  for (const it of sa.items) if (!it.taken && Math.abs(sa.x + 5 - it.x - 5) < 9 && Math.abs(sa.y - 5 - it.y - 4) < 10) { it.taken = 1; if (it.k === 'bug') { sa.carry = SA.CARRY; [520, 660, 520, 780].forEach((f, i) => setTimeout(() => saBeep(f, .07, 'triangle'), i * 70)); } else { sa.wing = 150; [660, 880, 1100].forEach((f, i) => setTimeout(() => saBeep(f, .08), i * 60)); } }
+  for (const it of sa.items) if (!it.taken && Math.abs(sa.x + 5 - it.x - 5) < 9 && Math.abs(sa.y - 5 - it.y - 4) < 10) { it.taken = 1; if (it.k === 'jet') { sa.jet = 110; sa.wing = sa.carry = 0; saBeep(140, .6, 'sawtooth', 900, .05); } else if (it.k === 'bulle') { sa.shield = true; saBeep(700, .2, 'triangle', 1400, .04); } else if (it.k === 'bug') { sa.carry = SA.CARRY; [520, 660, 520, 780].forEach((f, i) => setTimeout(() => saBeep(f, .07, 'triangle'), i * 70)); } else { sa.wing = 150; [660, 880, 1100].forEach((f, i) => setTimeout(() => saBeep(f, .08), i * 60)); } }
   for (const w of sa.wasps) {
     if (w.dead) { w.y += w.dead++ * .15; continue; }
-    w.x += w.vx; if (w.x < 0 || w.x > SA.W - 12) w.vx = -w.vx;
+    if (w.k === 'spider') { w.ph += 1 / 30; w.y = w.y0 + Math.sin(w.ph) * 16; } else { w.x += w.vx; if (w.x < 0 || w.x > SA.W - 12) w.vx = -w.vx; }
     const ox = Math.abs(sa.x + 5 - (w.x + 6)) < 9, top = w.y + 1;
     if (!ox || sa.y < w.y - 1 || sa.y - 9 > w.y + 8) continue;
-    if (sa.wing || sa.carry) { w.dead = 1; continue; }
+    if (sa.wing || sa.carry || sa.jet) { w.dead = 1; continue; }
     if (sa.vy > 0 && py <= top + 3) { w.dead = 1; sa.vy = -6; sa.stomps++; sas.wasps++; saBeep(200, .15, 'square', 80, .05); continue; }  // écrasée par en dessus : on rebondit
+    if (sa.inv) continue;
+    if (sa.shield) { sa.shield = false; sa.inv = 50; w.dead = 1; sa.vy = Math.min(sa.vy, -3); for (let i = 0; i < 10; i++) sa.bits.push({x: sa.x + 5, y: sa.y - 5, vx: Math.cos(i) * 1.5, vy: Math.sin(i) * 1.5, t: 24, c: '#a8e8ff'}); saBeep(500, .2, 'triangle', 200, .05); continue; }  // la bulle éclate à sa place
     return saOver('piquée');
   }
   for (const b of sa.bits) { b.x += b.vx; b.y += b.vy; b.vy += .08; b.t--; } sa.bits = sa.bits.filter(b => b.t > 0);
@@ -460,24 +490,32 @@ function saDraw() {
   { const hy = Math.round(-sa.cam * .5 + 62); if (hy - 20 < H) for (let x = 0; x < W; x++) { const t = Math.round(10 + 6 * Math.sin(x / 13) + 4 * Math.sin(x / 5.3)); px(g, '#4a9a5a', x, hy - t, 1, H); px(g, '#6aba6a', x, hy - t, 1, 1); } }
   saSides(g);
   for (const p of sa.plats) if (!p.gone) saPlat(g, p, Math.round(p.x), Math.round(p.y - sa.cam));
-  for (const it of sa.items) { const ix = it.x, iy = it.y - sa.cam + Math.round(Math.sin(sa.tick / 12) * 2); if (it.k === 'bug') { const f = (sa.tick >> 2) % 2; px(g, '#e8f4ff', ix + 1, iy - 2 + f, 3, 2); px(g, '#e8f4ff', ix + 5, iy - 2 + f, 3, 2); sprite(g, SA_BUG, ix, iy, SA_BUG_PAL); continue; } sprite(g, ['kkk..kkk', 'kwwkkwwk', 'kwwkkwwk', '.kkbbkk.', '...kbk..', '...kbk..', '....k...'], ix, iy, {k: '#1a2a3a', w: '#d8f4ff', b: '#3ab8e8'}); }
-  for (const w of sa.wasps) { const f = (sa.tick >> 2) % 2; sprite(g, w.vx > 0 ? saMirror(SA_WASP[f]) : SA_WASP[f], Math.round(w.x), Math.round(w.y - sa.cam), w.dead ? {...SA_WASP_PAL, y: '#a89a6a'} : SA_WASP_PAL); }
+  for (const it of sa.items) { const ix = it.x, iy = it.y - sa.cam + Math.round(Math.sin(sa.tick / 12) * 2); if (it.k === 'jet') { sprite(g, ['..k..', '.kwk.', '.kwk.', 'krrrk', 'krwrk', 'krrrk', 'kk.kk', '.y.y.'], ix + 1, iy - 2, {k: '#2a0a10', w: '#e8f4ff', r: '#e83a3a', y: (sa.tick >> 2) % 2 ? '#ffd84a' : '#ff6a1a'}); continue; }
+    if (it.k === 'bulle') { sprite(g, ['..bbbb..', '.b.ww.b.', 'b.w....b', 'b......b', 'b......b', '.b....b.', '..bbbb..'], ix, iy, {b: '#7ad8ff', w: '#ffffff'}); continue; }
+    if (it.k === 'bug') { const f = (sa.tick >> 2) % 2; px(g, '#e8f4ff', ix + 1, iy - 2 + f, 3, 2); px(g, '#e8f4ff', ix + 5, iy - 2 + f, 3, 2); sprite(g, SA_BUG, ix, iy, SA_BUG_PAL); continue; } sprite(g, ['kkk..kkk', 'kwwkkwwk', 'kwwkkwwk', '.kkbbkk.', '...kbk..', '...kbk..', '....k...'], ix, iy, {k: '#1a2a3a', w: '#d8f4ff', b: '#3ab8e8'}); }
+  for (const w of sa.wasps) { const f = (sa.tick >> 2) % 2;
+    if (w.k === 'spider') { const sx = Math.round(w.x), sy = Math.round(w.y - sa.cam); px(g, '#d8d8e8', sx + 5, Math.round(w.y0 - 40 - sa.cam), 1, sy - Math.round(w.y0 - 40 - sa.cam)); sprite(g, ['k..k.k..k', '.k.kkk.k.', '..kkkkk..', 'kkkrkrkkk', '..kkkkk..', '.k.k.k.k.', 'k..k.k..k'], sx + 1, sy, {k: w.dead ? '#6a6a6a' : '#1a1020', r: '#ff3a3a'}); continue; }
+    sprite(g, w.vx > 0 ? saMirror(SA_WASP[f]) : SA_WASP[f], Math.round(w.x), Math.round(w.y - sa.cam), w.dead ? {...SA_WASP_PAL, y: '#a89a6a'} : SA_WASP_PAL); }
   for (const b of sa.bits) px(g, b.c, b.x, b.y - sa.cam, 2, 2);
   // la sauterelle : pattes tendues en montée, repliées en descente ; ailes de libellule qui battent quand elle vole
   const fall = sa.mode === 'over' ? sa.dead * sa.dead * .04 : 0, rows = sa.vy < -1.5 || sa.wing ? SA_HOP.up : SA_HOP.down, hx = Math.round(sa.x) - 3, hy = Math.round(sa.y - sa.cam - rows.length + fall + (sa.squash > 3 ? 1 : 0));
   if (sa.carry) { const f = (sa.tick >> 1) % 2; px(g, '#e8f4ff', hx + 3, hy - 9 + f, 4, 2); px(g, '#e8f4ff', hx + 9, hy - 9 + f, 4, 2); sprite(g, SA_BUG, hx + 4, hy - 8, SA_BUG_PAL); for (const d of [6, 9]) px(g, '#1a0a0a', hx + d, hy - 1, 1, 2); }  // la coccinelle tient la sauterelle
-  const pal = sa.mode === 'over' ? {...SA_HOP_PAL, g: '#a8b88a', G: '#788a5a', D: '#58684a'} : SA_HOP_PAL;
+  const C = saCos(), pal = sa.mode === 'over' ? {...SA_HOP_PAL, g: '#a8b88a', G: '#788a5a', D: '#58684a'} : saCosPal(C, sa.tick);
+  if (sa.jet) for (let i = 0; i < 4; i++) px(g, i % 2 ? '#ffd84a' : '#ff6a1a', hx + 5 + (i & 1) * 2, hy + rows.length + i * 2 + ((sa.tick + i) & 1), 2, 2);
   for (const ox of [0, hx > W - 16 ? -W : hx < 0 ? W : null].filter(v => v !== null)) {
     if (sa.wing) { const up = (sa.tick >> 1) % 2; px(g, '#d8f4ff', hx + ox + 3, hy + (up ? 0 : 4), 9, 2); px(g, '#3ab8e8', hx + ox + 4, hy + (up ? 1 : 5), 7, 1); }
-    sprite(g, sa.face > 0 ? rows : saMirror(rows), hx + ox, hy, pal);
+    if (!(sa.inv && (sa.tick >> 2) % 2)) sprite(g, sa.face > 0 ? rows : saMirror(rows), hx + ox, hy, pal);
+    if (C.hat && sa.mode !== 'over') sprite(g, sa.face > 0 ? C.hat : saMirror(C.hat), hx + ox + (sa.face > 0 ? 9 : 16 - 9 - C.hat[0].length), hy - C.hat.length + 2, C.hp);
+    if (sa.shield) for (let a = 0; a < 20; a++) { const t = a / 20 * 6.283; px(g, (sa.tick >> 3) % 2 ? '#7ad8ff' : '#c8f0ff', hx + ox + 8 + Math.round(Math.cos(t) * 11), hy + 6 + Math.round(Math.sin(t) * 10)); }
   }
   px(g, '#0e0a14', 0, 0, W, HUD);
   const m = Math.floor(sa.maxH / 10); pxFont(g, m + ' m', 4, 9, '#ffffff', 8); pxFont(g, 'record ' + (games.best.sauterelle || 0), W - 4, 9, '#ffd84a', 8, 'right');
   if (sa.wing) { px(g, '#2a2236', 4, HUD + 2, 40, 3); px(g, '#3ab8e8', 4, HUD + 2, Math.round(40 * sa.wing / 150), 3); }
+  if (sa.jet) { px(g, '#2a2236', 4, HUD + 2, 40, 3); px(g, '#ff6a1a', 4, HUD + 2, Math.round(40 * sa.jet / 110), 3); }
   if (sa.carry) { px(g, '#2a2236', 4, HUD + 2, 40, 3); px(g, '#e83a2a', 4, HUD + 2, Math.round(40 * sa.carry / SA.CARRY), 3); }
   if (sa.mode === 'ready') gameText(g, W, [['SAUTERELLE', '#ffd84a', 12], ['← → : se diriger', '#ffffff'], ['Elle saute toute seule !', '#b0f0a0']], 70);
   if (sa.mode === 'pause') gameText(g, W, [['PAUSE', '#ffd84a', 12], ['Entrée : reprendre', '#b8b0c8']], 80);
-  if (sa.mode === 'over' && sa.dead > 30) gameText(g, W, [[sa.why === 'piquée' ? 'PIQUÉE !' : 'TOMBÉE !', '#ff4a3a', 12], [m + ' mètres', '#ffffff'], [sa.record ? 'NOUVEAU RECORD !' : 'Record ' + (games.best.sauterelle || 0) + ' m', '#ffd84a'], [sa.dead > 60 ? 'Espace : rejouer' : '', '#b8b0c8']], 70);
+  if (sa.mode === 'over' && sa.dead > 30) gameText(g, W, [[sa.why === 'piquée' ? 'PIQUÉE !' : 'TOMBÉE !', '#ff4a3a', 12], [m + ' mètres', '#ffffff'], [sa.record ? 'NOUVEAU RECORD !' : 'Record ' + (games.best.sauterelle || 0) + ' m', '#ffd84a'], ...(sa.unlock ? [['Costume : ' + sa.unlock, '#ffa8d8']] : []), [sa.dead > 60 ? 'Espace : rejouer' : '', '#b8b0c8']], 70);
   if (sa.tick % 15 === 0) {  // pour les lecteurs d'écran (et le test) : où est la prochaine feuille sûre
     const nx = saNext(); let where = 'aucune';
     if (nx) { const dx = saWrapDx(sa.x + 5, nx.x + (nx.w || SA.PW) / 2); where = Math.abs(dx) < 6 ? 'au-dessus' : dx < 0 ? 'à gauche' : 'à droite'; }
@@ -497,6 +535,13 @@ function saNext() {
   return pick;
 }
 function saInfo() {
+  $('saCos').replaceChildren(...SA_COS.map(C => {  // les costumes : un clic pour le porter ; fermés, ils disent ce qu'il reste à faire
+    const ok = saCosOk(C), cv = el('canvas'), g = cv.getContext('2d'); cv.width = cv.height = 16;
+    sprite(g, SA_HOP.down, 0, 3, ok ? saCosPal(C, 20) : {...SA_HOP_PAL, g: '#3a3448', G: '#2a2436', D: '#1e1a28', y: '#3a3448', l: '#1e1a28'}); if (ok && C.hat) sprite(g, C.hat, 9, 5 - C.hat.length + 2, C.hp);
+    const b = el('button', 'btn' + (saCos().id === C.id ? ' main' : '')); b.disabled = !ok;
+    b.append(cv, el('span', '', C.name), el('em', '', ok ? (saCos().id === C.id ? 'porté' : 'à toi') : Math.min(saNeedVal(C), C.need[1]) + ' / ' + C.need[1] + ' ' + SA_NEED_TXT[C.need[0]]));
+    b.onclick = () => { sas.costume = C.id; saveGames(); saInfo(); b.blur(); }; return b;
+  }));
   $('saStats').replaceChildren(...[['Record', (games.best.sauterelle || 0) + ' m'], ['Mètres en tout', sas.total], ['Guêpes écrasées', sas.wasps], ['Parties', sas.games]].flatMap(([a, b]) => [el('span', '', a), el('b', '', String(b))]));
 }
 document.addEventListener('keydown', e => {
@@ -539,13 +584,17 @@ $('saNew').onclick = () => { saNew(); $('saNew').blur(); };
   one(() => { sa.plats.push({x: 50, y: -40, t: 'dry', vx: 0, used: 0}); sa.x = 55; sa.y = -42; sa.vy = 3; }); saUpdate(); if (!sa.plats[1].gone || sa.vy < 0) bad.push('feuille sèche solide');
   one(() => { sa.plats.push({x: 50, y: -40, t: 'leaf', vx: 0, used: 0, spring: true}); sa.x = 56; sa.y = -42; sa.vy = 3; }); saUpdate(); if (sa.vy !== SA.SPRING) bad.push('champignon sans ressort');
   one(() => { sa.x = 60; sa.y = -20; sa.vy = 0; sa.items.push({x: 60, y: -26, k: 'bug'}); }); saUpdate(); { const y0 = sa.y; for (let t = 0; t < 100; t++) saUpdate(); if (!(sa.carry > 0 && y0 - sa.y > 200)) bad.push('coccinelle ' + sa.carry + ' ' + (y0 - sa.y)); for (let t = 0; t < SA.CARRY; t++) saUpdate(); if (sa.carry) bad.push('coccinelle sans fin'); }
+  one(() => { sa.x = 60; sa.y = -20; sa.vy = 0; sa.items.push({x: 60, y: -26, k: 'jet'}); }); saUpdate(); { const y0 = sa.y, w = {x: sa.x, y: sa.y - 30, vx: 0, dead: 0}; sa.wasps.push(w); for (let t = 0; t < 20; t++) saUpdate(); if (!(sa.jet > 0 && y0 - sa.y > 150 && w.dead && sa.mode === 'play')) bad.push('fusée ' + (y0 - sa.y)); }
+  one(() => { sa.x = 60; sa.y = -20; sa.vy = 0; sa.shield = true; sa.wasps.push({x: 59, y: -26, vx: 0, dead: 0}); }); saUpdate(); if (sa.mode !== 'play' || sa.shield || !sa.inv) bad.push('bulle');
+  one(() => { sa.wasps.push({k: 'spider', x: 20, y: -300, y0: -300, ph: 0, vx: 0, dead: 0}); sa.x = 100; sa.y = -20; }); { const ys = new Set(), w = sa.wasps[0]; for (let t = 0; t < 120; t++) { sa.vy = 0; sa.y = -20; saUpdate(); ys.add(Math.round(w.y)); } if (ys.size < 10) bad.push('araignée immobile'); }
+  sas.costume = 'arc'; if (saCos().id !== 'verte') bad.push('costume fermé porté'); sas.wasps = 99; sas.costume = 'cocci'; if (saCos().id !== 'cocci') bad.push('costume ouvert refusé');
   one(() => { sa.y = 50; sa.vy = 5; sa.cam = -SA.H + 24; }); for (let t = 0; t < 60 && sa.mode === 'play'; t++) saUpdate(); if (sa.why !== 'tombée') bad.push('chute pas vue');
   console.assert(!bad.length, 'sauterelle', bad);
   Object.assign(sas, JSON.parse(keepS)); if (keepB === undefined) delete games.best.sauterelle; else games.best.sauterelle = keepB;
   sa = keep; saMute = false;
 }
 $('saFs').onclick = () => { $('saFs').blur(); try { document.fullscreenElement ? document.exitFullscreen() : $('saCanvas').parentElement.requestFullscreen?.().catch(() => {}); } catch {} };
-$('saCanvas').__sa = {st: () => sa};
+$('saCanvas').__sa = {st: () => sa, sas, info: () => saInfo()};
 ctx.onOpen(() => {
   if (!sa || !sa.g) { saNew(); sa.g = $('saCanvas').getContext('2d'); }
   gameLoop(sa, 'sauterelle', saUpdate, saDraw); saInfo();

@@ -4,6 +4,13 @@ A pixel art jumping game: a grasshopper hops from leaf to leaf, ever higher, fro
 
 *Version française : [README.md](README.md)*
 
+## Costumes, rocket, bubble and spiders (new in 1.2.0)
+
+- **Seven costumes** won by playing, to pick in the panel: Green, **Golden** (crown), **Pink mantis** (flower), **Night** (wizard hat), **Ladybird**, **Robot** (antenna) and **Rainbow**, which keeps changing colour. Each one tells you what is left to do to unlock it.
+- The **rocket** (above 250 m) blasts the grasshopper very high and squashes everything in its way.
+- The **bubble** protects her from one sting.
+- **Spiders** (above 260 m) go up and down on their thread: jump on them, don't touch them from the side.
+
 ## Controls
 
 - **← →** (or **Q D**): steer the grasshopper. It jumps by itself.
