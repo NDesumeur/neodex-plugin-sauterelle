@@ -304,6 +304,9 @@ export default async function (ctx) {
   const best = (k, v) => { const b = games.best[k]; if (v > (b ?? 0)) {  // un score nul n'est jamais un record
     games.best[k] = v; saveGames(); return true; } return false; };
   const gstore = (k, init) => (games[k] ??= init);
+  // les trophées de NeoDex (3.4.8 et plus) : succès et records déclarés dans plugin.json ; sur un NeoDex plus ancien, rien ne se passe
+  const trophy = id => { ctx.games?.unlock(id).catch(() => {}); };
+  const trophyRecord = (id, v) => { if (v != null && Number.isFinite(+v)) ctx.games?.record(id, +v).catch(() => {}); };
 function gameLoop(st, appKey, update, draw) {
   cancelAnimationFrame(st.raf);
   const STEP = 1000 / 60; let acc = 0, last = performance.now();
@@ -535,6 +538,7 @@ function saNext() {
   return pick;
 }
 function saInfo() {
+  setTimeout(saTrophies);
   $('saCos').replaceChildren(...SA_COS.map(C => {  // les costumes : un clic pour le porter ; fermés, ils disent ce qu'il reste à faire
     const ok = saCosOk(C), cv = el('canvas'), g = cv.getContext('2d'); cv.width = cv.height = 16;
     sprite(g, SA_HOP.down, 0, 3, ok ? saCosPal(C, 20) : {...SA_HOP_PAL, g: '#3a3448', G: '#2a2436', D: '#1e1a28', y: '#3a3448', l: '#1e1a28'}); if (ok && C.hat) sprite(g, C.hat, 9, 5 - C.hat.length + 2, C.hp);
@@ -595,6 +599,13 @@ $('saNew').onclick = () => { saNew(); $('saNew').blur(); };
 }
 $('saFs').onclick = () => { $('saFs').blur(); try { document.fullscreenElement ? document.exitFullscreen() : $('saCanvas').parentElement.requestFullscreen?.().catch(() => {}); } catch {} };
 $('saCanvas').__sa = {st: () => sa, sas, info: () => saInfo()};
+// les trophées, tirés des statistiques et des records gardés (aussi à l'ouverture : ce qui a été fait avant compte)
+function saTrophies() {
+  const b = games.best.sauterelle || 0, sig = [b, sas.wasps, sas.total, sas.games].join(); if (sig === saTrophies.sig) return; saTrophies.sig = sig;
+  trophyRecord('hauteur', b || null);
+  if (b >= 100) trophy('m100'); if (b >= 300) trophy('m300'); if (b >= 800) trophy('m800'); if (b >= 1500) trophy('m1500');
+  if (sas.wasps >= 50) trophy('guepes'); if (sas.total >= 10000) trophy('total'); if (SA_COS.every(saCosOk)) trophy('costumes');
+}
 ctx.onOpen(() => {
   if (!sa || !sa.g) { saNew(); sa.g = $('saCanvas').getContext('2d'); }
   gameLoop(sa, 'sauterelle', saUpdate, saDraw); saInfo();
